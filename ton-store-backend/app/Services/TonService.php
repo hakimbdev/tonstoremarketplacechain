@@ -79,26 +79,40 @@ class TonService
         }
     }
 
-    public function verifyTransaction(string $transactionHash): bool
+    /**
+     * Verify a transaction on the TON blockchain using the TON API
+     *
+     * @param string $transactionHash The transaction hash to verify
+     * @return array Transaction data with success status
+     */
+    public function verifyTransaction(string $transactionHash): array
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->get($this->apiEndpoint . '/transactions/' . $transactionHash);
+            ])->get('https://tonapi.io/v2/traces/' . $transactionHash);
 
             if ($response->successful()) {
                 $data = $response->json();
-                return $data['status'] === 'completed';
+                return [
+                    'success' => $data['transaction']['success'] ?? false,
+                    'data' => $data,
+                ];
             }
 
-            return false;
+            Log::error('Failed to verify transaction on TON blockchain', [
+                'response' => $response->json(),
+                'status' => $response->status(),
+            ]);
+
+            return ['success' => false, 'data' => null];
         } catch (\Exception $e) {
             Log::error('Error verifying transaction on TON blockchain', [
                 'error' => $e->getMessage(),
                 'transaction_hash' => $transactionHash,
             ]);
-            return false;
+            return ['success' => false, 'data' => null, 'error' => $e->getMessage()];
         }
     }
 
@@ -123,4 +137,4 @@ class TonService
             throw $e;
         }
     }
-} 
+}
